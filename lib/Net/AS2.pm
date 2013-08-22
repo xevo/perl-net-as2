@@ -649,7 +649,7 @@ sub _send_preprocess
     $data =~ s/(?:$crlf|\n)/$crlf/g;
     my $mic = $is_mdn ? undef : ($pre_mic // Digest::SHA1::sha1_base64($data) . '=');
 
-    if ($is_mdn && $should_mdn_signed || !$is_mdn && $self->{Signature}) {
+    if (( $is_mdn && $should_mdn_signed ) || ( !$is_mdn && $self->{Signature} )) {
         $data = $self->{_smime_sign}->sign($data);
     }
     if ($self->{Encryption} && !$is_mdn) {
