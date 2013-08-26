@@ -412,10 +412,6 @@ sub decode_message
             if $self->{Encryption};
     }
 
-    my $parser = new MIME::Parser;
-    $parser->output_to_core(1);
-    $parser->tmp_to_core(1);
-
     if ($self->{_smime_sign}->isSigned($is_content_raw ? $merged_headers . $content : $content))
     {
         if ($is_content_raw) 
@@ -425,24 +421,8 @@ sub decode_message
                 $content;
             $is_content_raw = 0;
         }
-
-        my $entity = $parser->parse_data($content);
-        foreach my $part ($entity->parts)
-        {
-            if ( $part->head->get('Content-Type') =~ m{application/(x-)?pkcs7-signature} )
-            {
-                if ( $part->head->get('Content-Transfer-Encoding') =~ m{binary} )
-                {
-                    # Convert the sig to base64 because Crypt::SMIME has problems with a binary encoded sig attachment.
-                    # MIME::Entity seems to base64 the content automatically when you change the Content-Transfer-Encoding to base64.
-                    $part->head->replace('Content-Transfer-Encoding', 'base64');
-                }
-
-                last;
-            }
-        }
-        $content = $entity->stringify;
-
+        
+        $content = _pkcs7_base64($content);
         $content = eval { $self->{_smime_sign}->check($content); };
         if (my $error = $@)
         {
@@ -460,7 +440,10 @@ sub decode_message
 
     my $mic = Digest::SHA1::sha1_base64($content) . '=';
 
-    # TODO does the MIME message really need to be re-parsed here?
+    my $parser = new MIME::Parser;
+    $parser->output_to_core(1);
+    $parser->tmp_to_core(1);
+
     my $entity = $parser->parse_data($is_content_raw ? $merged_headers . $content : $content);
     my $bh = $entity->bodyhandle;
 
