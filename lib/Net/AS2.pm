@@ -1,6 +1,7 @@
 package Net::AS2;
 use strict;
 use warnings qw(all);
+no if $] >= 5.017011, warnings => 'experimental::smartmatch';
 
 =head1 NAME
 
@@ -304,7 +305,8 @@ sub _validations
     croak "timeout is invalid"
         unless $self->{Timeout} =~ /^[0-9]+$/;
 
-    $self->{UserAgent} //= "Perl AS2/$VERSION";
+    $self->{UserAgent} //= 
+        "Perl AS2/$VERSION";
 }
 
 =back
@@ -396,6 +398,11 @@ sub decode_message
         $is_content_raw = 0;
 
         $content = eval { $self->{_smime_enc}->decrypt($content); };
+        if (my $error = $@)
+        {
+            warn "OPENSSL ERROR (decrypt): $error";
+        }
+
         return Net::AS2::Message->create_error_message(@new_prefix, 
             'decryption-failed', 'Unable to decrypt the message')
             if $@;
@@ -405,15 +412,44 @@ sub decode_message
             if $self->{Encryption};
     }
 
+    my $parser = new MIME::Parser;
+    $parser->output_to_core(1);
+    $parser->tmp_to_core(1);
+
     if ($self->{_smime_sign}->isSigned($is_content_raw ? $merged_headers . $content : $content))
     {
-        if ($is_content_raw) {
+        if ($is_content_raw) 
+        {
             $content = 
                 $merged_headers .
                 $content;
             $is_content_raw = 0;
         }
+
+        my $entity = $parser->parse_data($content);
+        foreach my $part ($entity->parts)
+        {
+            if ( $part->head->get('Content-Type') =~ m{application/(x-)?pkcs7-signature} )
+            {
+                if ( $part->head->get('Content-Transfer-Encoding') =~ m{binary} )
+                {
+                    my $binary = $part->bodyhandle;
+                    
+                    # convert the sig to base64 because Crypt::SMIME has problems with a binary encoded sig attachment
+                    # MIME::Entity seems to base64 the content automatically when you change the Content-Transfer-Encoding to base64
+                    $part->head->replace('Content-Transfer-Encoding', 'base64');
+                }
+
+                last;
+            }
+        }
+        $content = $entity->stringify;
+
         $content = eval { $self->{_smime_sign}->check($content); };
+        if (my $error = $@)
+        {
+            warn "OPENSSL ERROR (check sig): $error";
+        }
 
         return Net::AS2::Message->create_error_message(@new_prefix,
             'insufficient-message-security', 'Unable to verify the signature')
@@ -426,9 +462,7 @@ sub decode_message
 
     my $mic = Digest::SHA1::sha1_base64($content) . '=';
 
-    my $parser = new MIME::Parser;
-    $parser->output_to_core(1);
-    $parser->tmp_to_core(1);
+    # TODO does the MIME message really need to be re-parsed here?
     my $entity = $parser->parse_data($is_content_raw ? $merged_headers . $content : $content);
     my $bh = $entity->bodyhandle;
 
