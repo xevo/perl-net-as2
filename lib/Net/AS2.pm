@@ -433,10 +433,8 @@ sub decode_message
             {
                 if ( $part->head->get('Content-Transfer-Encoding') =~ m{binary} )
                 {
-                    my $binary = $part->bodyhandle;
-                    
-                    # convert the sig to base64 because Crypt::SMIME has problems with a binary encoded sig attachment
-                    # MIME::Entity seems to base64 the content automatically when you change the Content-Transfer-Encoding to base64
+                    # Convert the sig to base64 because Crypt::SMIME has problems with a binary encoded sig attachment.
+                    # MIME::Entity seems to base64 the content automatically when you change the Content-Transfer-Encoding to base64.
                     $part->head->replace('Content-Transfer-Encoding', 'base64');
                 }
 
