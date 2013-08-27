@@ -402,7 +402,7 @@ sub decode_message
         $content = eval { $self->{_smime_enc}->decrypt($content); };
         if (my $error = $@)
         {
-            warn "OPENSSL ERROR (decrypt): $error";
+            warn "[OPENSSL ERROR] Cannot decrypt message: $error";
         }
 
         return Net::AS2::Message->create_error_message(@new_prefix, 
@@ -428,7 +428,8 @@ sub decode_message
         $content = eval { $self->{_smime_sign}->check($content); };
         if (my $error = $@)
         {
-            warn "OPENSSL ERROR (check sig): $error";
+            
+            warn "[OPENSSL ERROR] Content failed signature check: $error\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n$content\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n";
         }
 
         return Net::AS2::Message->create_error_message(@new_prefix,
@@ -788,8 +789,11 @@ sub _parse_mdn
         # convert signature part to base64
         $content = _pkcs7_base64($content);
         $content = eval { $self->{_smime_sign}->check($content); };
-        return Net::AS2::MDN->create_unparsable_mdn('MDN signature failed verification: ' . $@)
-            if $@;
+        if (my $error = $@)
+        {
+            warn "[OPENSSL ERROR] Content failed signature check: $error\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n$content\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n";
+            return Net::AS2::MDN->create_unparsable_mdn('MDN signature failed verification: ' . $@);
+        }
     } else {
         return Net::AS2::MDN->create_unparsable_mdn('MDN is not signed')
             if $self->{Signature};
