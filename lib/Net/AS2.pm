@@ -752,6 +752,7 @@ sub _send
     $req->content($payload);
 
     my $test = $req->as_string;
+    warn "[AS2 RAW REQUEST]\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n$test\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n";
 
     my $ua = $self->create_useragent;
     my $resp = $ua->request($req);
@@ -760,6 +761,7 @@ sub _send
     if ($resp->is_success)
     {
         my $content = $resp->as_string;
+        warn "[AS2 RAW RESPONSE]\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n$content\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n";
         # Remove the status line
         $content =~ s{^.*?\r?\n}{};
         $mdn = $self->_parse_mdn($content);
