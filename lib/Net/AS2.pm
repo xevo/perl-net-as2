@@ -371,6 +371,8 @@ sub decode_message
         _parse_as2_id($headers->{HTTP_AS2_FROM}) ne $self->{PartnerId} ||
         _parse_as2_id($headers->{HTTP_AS2_TO}) ne $self->{MyId}
     ) {
+        warn "[AS2] Our To: $self->{MyId}, Their To: $headers->{HTTP_AS2_TO}";
+        warn "[AS2] Our From: $self->{PartnerId}, Their From: $headers->{HTTP_AS2_FROM}";
         return Net::AS2::Message->create_error_message(@new_prefix, 'authentication-failed', 'AS2-From or AS2-To is not expected');
     }
 
@@ -496,6 +498,8 @@ sub decode_mdn
         _parse_as2_id($headers->{HTTP_AS2_FROM}) ne $self->{PartnerId} ||
         _parse_as2_id($headers->{HTTP_AS2_TO}) ne $self->{MyId}
     ) {
+        warn "[AS2] Our To: $self->{MyId}, Their To: $headers->{HTTP_AS2_TO}";
+        warn "[AS2] Our From: $self->{PartnerId}, Their From: $headers->{HTTP_AS2_FROM}";
         return Net::AS2::MDN->create_unparsable_mdn('AS2-From or AS2-To is not expected')
     }
 
@@ -752,7 +756,7 @@ sub _send
     $req->content($payload);
 
     my $test = $req->as_string;
-    warn "[AS2 RAW REQUEST]\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n$test\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n";
+    warn "[AS2 RAW BASE64 REQUEST]\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" . encode_base64($test) . "\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n";
 
     my $ua = $self->create_useragent;
     my $resp = $ua->request($req);
@@ -761,7 +765,7 @@ sub _send
     if ($resp->is_success)
     {
         my $content = $resp->as_string;
-        warn "[AS2 RAW RESPONSE]\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n$content\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n";
+        warn "[AS2 RAW BASE64 RESPONSE]\nvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv\n" . encode_base64($content) . "\n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n";
         # Remove the status line
         $content =~ s{^.*?\r?\n}{};
         $mdn = $self->_parse_mdn($content);
